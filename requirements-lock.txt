@@ -2,10 +2,12 @@ altair==6.3.0
 anyio==4.15.1
 attrs==26.1.0
 certifi==2026.10.23
+cffi==2.1.1
 charset-normalizer==3.5.2
 click==8.5.0
 colorama==0.4.6
 colorlog==6.12.0
+cryptography==50.0.2
 dateparser==1.4.3
 flatbuffers==25.12.19
 h11==0.16.0
@@ -26,9 +28,10 @@ packaging==26.3
 pandas==3.1.0
 pillow==13.0.0
 pluggy==1.7.0
-protobuf==7.36.2
+protobuf==6.33.6
 pyarrow==26.0.0
 pyclipper==1.4.0
+pycparser==3.12
 pydeck==0.9.3
 Pygments==2.21.0
 pytest==9.1.1
@@ -44,8 +47,10 @@ requests==2.34.2
 rpds-py==2026.9.1
 shapely==2.2.0
 six==1.17.0
+snowflake-connector-python==5.1.0
 starlette==1.10.0
 streamlit==1.66.1
+tomlkit==0.15.2
 tqdm==4.70.1
 typing_extensions==4.16.0
 tzdata==2026.5

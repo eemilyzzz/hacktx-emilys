@@ -5,7 +5,7 @@ from .classify import recap_reason
 from .extract import ALL_DAY_WARNING, extract_rules
 from .models import Candidate, Post
 
-PARSER_VERSION = 3
+PARSER_VERSION = 4
 
 
 def partition_recaps(candidates: list[Candidate]) -> tuple[list[Candidate], list[Candidate]]:
@@ -37,7 +37,7 @@ def refresh_drafts(candidates: list[Candidate]) -> tuple[list[Candidate], set[st
                         item, start_date=item.start_date or extracted.start_date,
                         start_time=item.start_time or extracted.start_time,
                         end_time=item.end_time or extracted.end_time,
-                        warnings=extracted.warnings + [warning for warning in item.warnings if warning.startswith(("Image ", "OCR ", "Only ", "Some flyer "))],
+                        warnings=extracted.warnings + [warning for warning in item.warnings if warning.startswith(("Image ", "OCR ", "Only ", "Some flyer ", "No image URLs"))],
                     )
             if not item.start_time:
                 item = replace(item, all_day=True, end_time=None)

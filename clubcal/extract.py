@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import dateparser
@@ -86,10 +86,18 @@ def _event_dates(text: str, reference: datetime) -> tuple[set[str], list[str]]:
     for match in event_matches:
         token = match.group(0)
         has_year = bool(re.search(r"\b\d{4}\b", token) or re.fullmatch(r"\d{1,2}/\d{1,2}/\d{2}", token))
-        parsed = dateparser.parse(token, languages=["en"], settings={
-            "RELATIVE_BASE": reference.replace(tzinfo=None), "DATE_ORDER": "MDY",
-            "PREFER_LOCALE_DATE_ORDER": False, "PREFER_DATES_FROM": "current_period",
-        })
+        weekday = re.fullmatch(r"(this|next)\s+(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)", token, re.I)
+        if weekday:
+            day_index = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].index(weekday[2].lower())
+            offset = (day_index - reference.weekday()) % 7
+            if weekday[1].lower() == "next" and offset == 0:
+                offset = 7
+            parsed = reference.replace(tzinfo=None) + timedelta(days=offset)
+        else:
+            parsed = dateparser.parse(token, languages=["en"], settings={
+                "RELATIVE_BASE": reference.replace(tzinfo=None), "DATE_ORDER": "MDY",
+                "PREFER_LOCALE_DATE_ORDER": False, "PREFER_DATES_FROM": "current_period",
+            })
         if parsed:
             if not has_year and re.search(r"\d", token):
                 if len(explicit_years) == 1:

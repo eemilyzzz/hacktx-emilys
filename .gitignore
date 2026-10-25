@@ -6,3 +6,6 @@ __pycache__/
 *.ics
 exports/
 *.log
+.clubcal/
+*.p8
+*.pem

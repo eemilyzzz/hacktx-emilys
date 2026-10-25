@@ -94,12 +94,12 @@ def test_non_event_is_skipped():
     assert extract_rules(Post("one", "club", "Beautiful campus sunset!"), "", "UTC") == []
 
 
-def test_carousel_normalization_preserves_all_photos_and_skips_video():
+def test_carousel_normalization_preserves_photos_and_video_cover_images():
     posts = normalize_posts([{"id": "one", "ownerUsername": "club", "childPosts": [
         {"type": "Image", "displayUrl": "photo-one"}, {"type": "Video", "displayUrl": "video"},
         {"type": "Image", "displayUrl": "photo-two"},
     ]}])
-    assert posts[0].image_urls == ["photo-one", "photo-two"]
+    assert posts[0].image_urls == ["photo-one", "video", "photo-two"]
 
 
 @pytest.mark.parametrize("value", ["https://evil.example/club", "https://www.instagram.com/p/postid/", "club?a=1"])

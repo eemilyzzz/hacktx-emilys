@@ -115,6 +115,56 @@ def _post_timestamp(row: dict) -> str:
     return ""
 
 
+def _image_url(row: dict) -> str | None:
+    # A video/reel cover is an image too, and can contain the event flyer.
+    for key in ("displayUrl", "display_url", "imageUrl", "image_url", "thumbnailUrl", "thumbnail_url", "thumbnail_src"):
+        value = row.get(key)
+        if isinstance(value, str) and value:
+            return value
+    versions = (row.get("image_versions2") or {}).get("candidates", [])
+    versions = versions or row.get("display_resources") or row.get("thumbnail_resources") or []
+    if versions:
+        candidates = [item for item in versions if isinstance(item, dict)]
+        candidates.sort(key=lambda item: (item.get("width") or item.get("config_width") or 0) * (item.get("height") or item.get("config_height") or 0), reverse=True)
+        for item in candidates:
+            value = item.get("url") or item.get("src")
+            if isinstance(value, str) and value:
+                return value
+    value = row.get("media_url")
+    if isinstance(value, str) and value and row.get("media_type", row.get("type")) not in ("VIDEO", "Video"):
+        return value
+    return None
+
+
+def image_urls_from_row(row: dict) -> list[str]:
+    images = []
+    children = row.get("childPosts") or row.get("children") or row.get("carousel_media") or row.get("edge_sidecar_to_children") or []
+    if isinstance(children, dict):
+        children = children.get("data", children.get("edges", []))
+    for child in children:
+        if isinstance(child, dict):
+            child = child.get("node", child)
+            value = _image_url(child)
+            if value:
+                images.append(value)
+    listed = row.get("images") or []
+    if isinstance(listed, str):
+        listed = [listed]
+    for item in listed:
+        value = item if isinstance(item, str) else (_image_url(item) or item.get("url")) if isinstance(item, dict) else None
+        if isinstance(value, str) and value:
+            images.append(value)
+    if not images:
+        value = _image_url(row)
+        if value:
+            images.append(value)
+    # Avoid OCR of multiple sizes or refreshed signatures of the same slide.
+    unique = {}
+    for value in images:
+        unique.setdefault(urlparse(value).path or value, value)
+    return list(unique.values())
+
+
 def normalize_posts(rows: list[dict] | dict, organization: str = "") -> list[Post]:
     if isinstance(rows, dict):
         organization = organization_from_row(rows, organization)
@@ -131,18 +181,7 @@ def normalize_posts(rows: list[dict] | dict, organization: str = "") -> list[Pos
             if len(posts) > 500:
                 raise ValueError("Import at most 500 posts at a time.")
             continue
-        images = []
-        children = row.get("childPosts") or row.get("children") or []
-        if isinstance(children, dict):
-            children = children.get("data", [])
-        for child in children:
-            if not isinstance(child, dict):
-                continue
-            if child.get("type", child.get("media_type")) not in ("Video", "VIDEO"):
-                images.append(child.get("displayUrl") or child.get("media_url"))
-        images.extend(row.get("images") or [])
-        if not images and row.get("type", row.get("media_type")) not in ("Video", "VIDEO"):
-            images.append(row.get("displayUrl") or row.get("media_url"))
+        images = image_urls_from_row(row)
         url = str(row.get("url") or row.get("permalink") or row.get("postUrl") or row.get("post_url") or "")
         shortcode = row.get("shortCode") or row.get("shortcode")
         if not url and shortcode:
@@ -159,6 +198,35 @@ def normalize_posts(rows: list[dict] | dict, organization: str = "") -> list[Pos
             image_urls=list(dict.fromkeys(url for url in images if isinstance(url, str) and url)),
         ))
     return posts
+
+
+def recover_post_media(post: Post, token: str) -> Post:
+    """Read existing Actor datasets only. Never start a new billable run."""
+    response = _apify_request("get", "/acts/apify~instagram-post-scraper/runs", token,
+                              action="finding saved post images", params={"desc": "true", "limit": 5})
+    found = False
+    for run in response.json().get("data", {}).get("items", []):
+        if run.get("status") != "SUCCEEDED" or not run.get("defaultDatasetId"):
+            continue
+        response = _apify_request("get", f"/datasets/{run['defaultDatasetId']}/items", token,
+            action="recovering post images", params={"format": "json", "clean": "true", "limit": 500})
+        rows = response.json()
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            same_id = str(row.get("id") or row.get("post_id") or "") == post.id
+            same_url = (row.get("url") or row.get("permalink") or "").rstrip("/") == post.url.rstrip("/") if post.url else False
+            if not same_id and not same_url:
+                continue
+            found = True
+            recovered = normalize_posts([row], post.username)[0]
+            if recovered.image_urls:
+                return recovered
+    if found:
+        raise ValueError("Apify's saved result has no image or cover URLs for this post. Fetch fresh media or upload the flyer to read its text.")
+    raise ValueError("This post was not found in the latest five successful Apify results. Fetch fresh posts or upload its flyer.")
 
 
 def fetch_apify(usernames: list[str], token: str, limit: int = 10, newer_than: str = "30 days", progress=None) -> list[Post]:

@@ -8,6 +8,7 @@ from .ingest import download_instagram_image
 from .models import Candidate, Post
 from .ocr import read_image
 
+MISSING_IMAGES = "No image URLs were returned for this Instagram post; only the caption was analyzed."
 
 def process_post(
     post: Post, timezone: str, ai: AISettings | None = None,
@@ -18,11 +19,13 @@ def process_post(
     if reason:
         return [], [reason]
     texts, warnings = [], []
-    if not use_ocr and (post.image_urls or local_images):
+    if not use_ocr and (post.image_urls or local_images or post.url):
         warnings.append("OCR was disabled; this post was interpreted from its caption only.")
     if use_ocr:
         images = [("upload", content) for content in (local_images or [])]
         images += [(url, None) for url in post.image_urls]
+        if not images and post.url:
+            warnings.append(MISSING_IMAGES)
         if len(images) > max_images:
             warnings.append(f"Only {max_images} carousel slides processed. Upload remaining flyers separately.")
         for index, (url, content) in enumerate(images[:max_images]):
@@ -31,11 +34,14 @@ def process_post(
             try:
                 content = content if content is not None else download_instagram_image(url)
                 text, image_warnings = read_image(content)
-                texts.append(f"[Image {index + 1}]\n{text}")
+                if text.strip():
+                    texts.append(f"[Image {index + 1}]\n{text}")
                 warnings.extend(image_warnings)
             except Exception as exc:
                 # One expired/bad image must not discard other slides or the caption.
                 warnings.append(f"Image {index + 1} could not be read ({type(exc).__name__}). Fetch fresh posts or upload it manually.")
+        if texts:
+            warnings.append(f"Image OCR: text read from {len(texts)} of {len(images[:max_images])} image(s).")
     text = "\n\n".join(texts)
     if progress:
         progress(f"Finding events in @{post.username}'s post")

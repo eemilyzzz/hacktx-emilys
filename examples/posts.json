@@ -1,0 +1,20 @@
+[
+  {
+    "id": "demo-design",
+    "ownerUsername": "demo_design_club",
+    "caption": "Creative mixer\nJoin us October 29, 2026, 6–8 PM for sketching and snacks.\nLocation: Student Union, Room 2.102\nAll majors welcome! (Fictional demo event.)",
+    "timestamp": "2026-10-24T15:00:00Z"
+  },
+  {
+    "id": "demo-tech",
+    "ownerUsername": "demo_tech_club",
+    "caption": "Build your first app workshop\nNovember 5, 2026 at 5:30 PM. Bring a laptop!\nLocation: Engineering Building, Room 101\nRSVP in bio. (Fictional demo event.)",
+    "timestamp": "2026-10-24T16:00:00Z"
+  },
+  {
+    "id": "demo-flyer",
+    "ownerUsername": "demo_photo_club",
+    "caption": "",
+    "timestamp": "2026-10-24T16:00:00Z"
+  }
+]
